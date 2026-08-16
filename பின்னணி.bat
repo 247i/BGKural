@@ -12,7 +12,6 @@ rem   4. Calculates the corresponding Kural number (1-1330).
 rem   5. Launches the matching .bgi file.
 rem   6. Displays the calculated Thiruvalluvar date.
 rem
-rem The original date-conversion and Kural-number formulas are retained.
 rem ================================================================
 
 rem Start from the directory containing this batch file. This preserves the original path behavior.
