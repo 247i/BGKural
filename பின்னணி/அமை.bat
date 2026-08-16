@@ -1,85 +1,216 @@
-Rem This script can launch an executable with the same name as this batch file (for example, xyz)
-Rem from a matching xyz folder under the t folder located next to this batch file.
-Rem The following command also forwards all command-line arguments to that executable.
-Rem "%~dp0t\%~n0\%~n0" %*
+@echo off
+setlocal EnableExtensions EnableDelayedExpansion
 
-@echo on
-rem cd /d %~dp0
-pushd %~dp0
-cd ..
+rem ================================================================
+rem Thiruvalluvar / Thirukkural launcher
+rem
+rem This batch file:
+rem   1. Gets the current Gregorian date.
+rem   2. Calculates the Gregorian day of year.
+rem   3. Converts it to the Thiruvalluvar year and day.
+rem   4. Calculates the corresponding Kural number (1-1330).
+rem   5. Launches the matching .bgi file.
+rem   6. Displays the calculated Thiruvalluvar date.
+rem
+rem The original date-conversion and Kural-number formulas are retained.
+rem ================================================================
 
+rem Start from the directory containing this batch file, then move to
+rem its parent directory. This preserves the original path behavior.
+pushd "%~dp0" || (
+    echo ERROR: Unable to access the batch file directory.
+    exit /b 1
+)
+cd /d ".." || (
+    echo ERROR: Unable to access the parent directory.
+    popd
+    exit /b 1
+)
+
+rem ------------------------------------------------
 rem Get the current Gregorian day, month, and year.
-for /F "skip=1 delims=" %%F in ('
-    wmic PATH Win32_LocalTime GET Day^,Month^,Year /FORMAT:TABLE
+rem PowerShell is used instead of the deprecated WMIC command.
+rem ------------------------------------------------
+for /f "tokens=1-3 delims= " %%A in ('
+    powershell -NoProfile -Command "(Get-Date).Day; (Get-Date).Month; (Get-Date).Year"
 ') do (
-    for /F "tokens=1-3" %%L in ("%%F") do (
-        set /a Day=%%L
-        set /a Month=%%M
-        set /a Year=%%N
+    if not defined Day (
+        set "Day=%%A"
+    ) else if not defined Month (
+        set "Month=%%A"
+    ) else if not defined Year (
+        set "Year=%%A"
     )
 )
 
-rem Determine whether the current year is treated as a leap year.
-Set /a YMod4=%Year% %% 4, LYear = 0
-if %YMod4% equ 0 set /a LYear = 1
+if not defined Day goto :DateError
+if not defined Month goto :DateError
+if not defined Year goto :DateError
 
-rem Define the number of days before the first day of each month.
-Set /a acm[1]=0, acm[2]=31, acm[3]=59, acm[4]=90, acm[5]=120, acm[6]=151, acm[7]=181, acm[8]=212, acm[9]=243, acm[10]=273, acm[11]=304, acm[12]=334
+rem ------------------------------------------------
+rem Validate the date values returned by PowerShell.
+rem ------------------------------------------------
+set /a "DaysInMonth=31"
+if %Month%==2 set /a "DaysInMonth=28"
+if %Month%==4 set /a "DaysInMonth=30"
+if %Month%==6 set /a "DaysInMonth=30"
+if %Month%==9 set /a "DaysInMonth=30"
+if %Month%==11 set /a "DaysInMonth=30"
 
-rem Enable command extensions and delayed expansion so the month-indexed array value can be accessed.
-setlocal EnableExtensions EnableDelayedExpansion
+rem ------------------------------------------------
+rem Determine whether the Gregorian year is a leap year.
+rem Gregorian rule:
+rem   divisible by 400, OR
+rem   divisible by 4 but not divisible by 100.
+rem ------------------------------------------------
+set /a "YMod4=Year %% 4"
+set /a "YMod100=Year %% 100"
+set /a "YMod400=Year %% 400"
+set /a "LYear=0"
 
-if defined PROCESSOR_ARCHITEW6432 (
-    set "ARCH=%PROCESSOR_ARCHITEW6432%"
-) else (
-    set "ARCH=%PROCESSOR_ARCHITECTURE%"
+if %YMod400%==0 (
+    set /a "LYear=1"
+) else if %YMod4%==0 if not %YMod100%==0 (
+    set /a "LYear=1"
 )
 
-echo Detected architecture: %ARCH%
+if %Month%==2 if %LYear%==1 set /a "DaysInMonth=29"
 
-if /i "%ARCH%"=="AMD64" (
-    echo System is 64-bit x86 ^(x64^)
-	set /a App= "Bginfo64.exe"
-) else if /i "%ARCH%"=="ARM64" (
-    echo System is 64-bit ARM
-) else if /i "%ARCH%"=="x86" (
-    echo System is 32-bit x86
-	set /a App= "Bginfo.exe"
-) else (
-    echo Unknown architecture: %ARCH%
+if %Month% LSS 1 goto :DateError
+if %Month% GTR 12 goto :DateError
+if %Day% LSS 1 goto :DateError
+if %Day% GTR %DaysInMonth% goto :DateError
+
+rem ------------------------------------------------
+rem Number of days before the first day of each month.
+rem The array is indexed by month number.
+rem ------------------------------------------------
+set /a "acm[1]=0"
+set /a "acm[2]=31"
+set /a "acm[3]=59"
+set /a "acm[4]=90"
+set /a "acm[5]=120"
+set /a "acm[6]=151"
+set /a "acm[7]=181"
+set /a "acm[8]=212"
+set /a "acm[9]=243"
+set /a "acm[10]=273"
+set /a "acm[11]=304"
+set /a "acm[12]=334"
+
+rem ------------------------------------------------
+rem Calculate the Gregorian day of year.
+rem Add the leap day only for dates after February.
+rem ------------------------------------------------
+set /a "DoY=!acm[%Month%]! + Day"
+if %Month% GTR 2 if %LYear%==1 set /a "DoY+=1"
+
+rem ------------------------------------------------
+rem Convert Gregorian date to Thiruvalluvar year/day.
+rem These formulas are retained from the original batch file.
+rem ------------------------------------------------
+set /a "TrYear=Year + 31"
+set /a "TrDay=DoY - 15"
+
+if %LYear%==1 set /a "TrDay-=1"
+
+rem If the calculated day is before the beginning of the
+rem Thiruvalluvar year, move to the previous Thiruvalluvar year.
+if %Month%==1 if %TrDay% LSS 1 (
+    set /a "TrYear-=1"
+    set /a "TrDay+=365 + LYear"
 )
 
-rem Calculate the day number within the Gregorian year.
-set /a DoY= !acm[%Month%]! + %Day%
-if %Month% gtr 2 set /A DoY+=%LYear%
+rem ------------------------------------------------
+rem Calculate the Kural number.
+rem TYMod4 is retained from the original algorithm.
+rem ------------------------------------------------
+set /a "TYMod4=TrYear %% 4"
+set /a "DoTLY=TrDay + TYMod4 * 365"
+set /a "Kod=(DoTLY %% 1330) + 1"
 
-rem End the local environment while preserving the calculated day-of-year value.
-endlocal & Set "Doy=%DoY%"
+rem ------------------------------------------------
+rem Format the Kural number as a four-digit value:
+rem   1    -> 0001
+rem   25   -> 0025
+rem   1330 -> 1330
+rem ------------------------------------------------
+set "Kod1=0000%Kod%"
+set "Kod2=!Kod1:~-4!"
 
-rem Convert the Gregorian date to the corresponding Thiruvalluvar year and day.
-Set /a TrYear = %Year%+31, TrDay = %DoY% - 15
-if %LYear% equ 1 set /A Trday = %TrDay% - 1
-if %Month% equ 1 if %TrDay% lss 1 ( set /A TrYear = %TrYear% - 1, TrDay = %TrDay% + 365 + %LYear%)
+rem ------------------------------------------------
+rem Select the correct BGInfo executable for Windows bitness.
+rem PROCESSOR_ARCHITEW6432 identifies 64-bit Windows when this
+rem batch file is running from a 32-bit process.
+rem ------------------------------------------------
+set "BgInfoExe="
 
-rem Thiruvalluvar date conversion completed.
+if /i "%PROCESSOR_ARCHITEW6432%"=="AMD64" set "BgInfoExe=Bginfo64.exe"
+if /i "%PROCESSOR_ARCHITEW6432%"=="ARM64" set "BgInfoExe=Bginfo64.exe"
 
-rem Calculate the position used to select the Kural number.
-Set /a TYMod4=%TrYear% %% 4
-set /a DoTLY = %TrDaY% + %TYMod4%*365
-Set /a Kod= (%DoTLY% %% 1330)+1
+if not defined BgInfoExe (
+    if /i "%PROCESSOR_ARCHITECTURE%"=="AMD64" set "BgInfoExe=Bginfo64.exe"
+    if /i "%PROCESSOR_ARCHITECTURE%"=="ARM64" set "BgInfoExe=Bginfo64.exe"
+    if /i "%PROCESSOR_ARCHITECTURE%"=="x86" set "BgInfoExe=Bginfo.exe"
+)
 
-rem Format the Kural number as a four-digit value (0001 through 1330).
-Set Kod1=000%Kod%
-Set Kod2=%Kod1:~-4%
+if not defined BgInfoExe (
+    echo ERROR: Unable to determine Windows bitness.
+    echo PROCESSOR_ARCHITECTURE=%PROCESSOR_ARCHITECTURE%
+    echo PROCESSOR_ARCHITEW6432=%PROCESSOR_ARCHITEW6432%
+    goto :Cleanup
+)
 
-rem Launch the corresponding Thirukkural BGI file using the background-information application.
-start /min பின்னணிதகவல்.exe பின்னணி\திருக்குறள்-%Kod2%.bgi /NOLICPROMPT /SILENT /timer:0
+rem ------------------------------------------------
+rem Verify that the selected BGInfo executable exists.
+rem ------------------------------------------------
+if not exist "%BgInfoExe%" (
+    echo ERROR: Required BGInfo executable not found:
+    echo        %CD%\%BgInfoExe%
+    goto :Cleanup
+)
 
-echo திருவள்ளுவர் ஆண்டு  %TrYear% நாள் %TrDay%
+set "KuralFile=பின்னணி\திருக்குறள்-%Kod2%.bgi"
 
-rem Clear the Windows logon legal-notice caption and text from the system policy registry settings.
-chcp 65001
-REG ADD HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System /v legalnoticecaption /d "" /f
-REG ADD HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System /v legalnoticetext /d "" /f
+if not exist "%KuralFile%" (
+    echo ERROR: Kural file not found:
+    echo        %CD%\%KuralFile%
+    echo.
+    echo Calculated Kural number: %Kod%
+    goto :Cleanup
+)
 
-goto :eof
+rem ------------------------------------------------
+rem Launch the calculated Kural with the BGInfo executable
+rem selected for the current Windows bitness.
+rem ------------------------------------------------
+echo Windows architecture: %PROCESSOR_ARCHITECTURE%
+if defined PROCESSOR_ARCHITEW6432 echo Native architecture: %PROCESSOR_ARCHITEW6432%
+echo BGInfo executable: %BgInfoExe%
+
+start "" /min "%BgInfoExe%" "%KuralFile%" /NOLICPROMPT /SILENT /timer:0
+
+rem Display the calculated Thiruvalluvar date.
+echo.
+echo திருவள்ளுவர் ஆண்டு %TrYear% நாள் %TrDay%
+
+rem ------------------------------------------------
+rem Clear the Windows logon legal-notice caption and text.
+rem This requires Administrator privileges.
+rem The original registry behavior is retained.
+rem ------------------------------------------------
+chcp 65001 >nul
+REG ADD "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" /v legalnoticecaption /d "" /f
+REG ADD "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" /v legalnoticetext /d "" /f
+
+:Cleanup
+popd
+endlocal
+exit /b 0
+
+:DateError
+echo ERROR: Unable to obtain or validate the current Gregorian date.
+echo Day=%Day% Month=%Month% Year=%Year%
+popd
+endlocal
+exit /b 1
