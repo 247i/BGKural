@@ -1,19 +1,6 @@
 @echo off
 setlocal EnableExtensions EnableDelayedExpansion
 
-rem ================================================================
-rem Thiruvalluvar / Thirukkural launcher
-rem
-rem This batch file:
-rem   1. Gets the current Gregorian date.
-rem   2. Calculates the Gregorian day of year.
-rem   3. Converts it to the Thiruvalluvar year and day.
-rem   4. Calculates the corresponding Kural number (1-1330).
-rem   5. Launches the matching .bgi file.
-rem   6. Displays the calculated Thiruvalluvar date.
-rem
-rem ================================================================
-
 rem Start from the directory containing this batch file. This preserves the original path behavior.
 pushd "%~dp0" || (
     echo ERROR: Unable to access the batch file directory.
@@ -21,8 +8,7 @@ pushd "%~dp0" || (
 )
 
 rem ------------------------------------------------
-rem Get the current Gregorian day, month, and year.
-rem PowerShell is used instead of the deprecated WMIC command.
+rem Get the current Gregorian day, month, and year using PowerShell.
 rem ------------------------------------------------
 for /f "tokens=1-3 delims= " %%A in ('
     powershell -NoProfile -Command "(Get-Date).Day; (Get-Date).Month; (Get-Date).Year"
@@ -52,9 +38,6 @@ if %Month%==11 set /a "DaysInMonth=30"
 
 rem ------------------------------------------------
 rem Determine whether the Gregorian year is a leap year.
-rem Gregorian rule:
-rem   divisible by 400, OR
-rem   divisible by 4 but not divisible by 100.
 rem ------------------------------------------------
 set /a "YMod4=Year %% 4"
 set /a "YMod100=Year %% 100"
