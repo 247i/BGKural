@@ -15,15 +15,9 @@ rem
 rem The original date-conversion and Kural-number formulas are retained.
 rem ================================================================
 
-rem Start from the directory containing this batch file, then move to
-rem its parent directory. This preserves the original path behavior.
+rem Start from the directory containing this batch file. This preserves the original path behavior.
 pushd "%~dp0" || (
     echo ERROR: Unable to access the batch file directory.
-    exit /b 1
-)
-cd /d ".." || (
-    echo ERROR: Unable to access the parent directory.
-    popd
     exit /b 1
 )
 
@@ -166,7 +160,7 @@ rem Verify that the selected BGInfo executable exists.
 rem ------------------------------------------------
 if not exist "%BgInfoExe%" (
     echo ERROR: Required BGInfo executable not found:
-    echo        %CD%\%BgInfoExe%
+    echo        %BgInfoExe%
     goto :Cleanup
 )
 
@@ -174,7 +168,7 @@ set "KuralFile=பின்னணி\திருக்குறள்-%Kod2%.bg
 
 if not exist "%KuralFile%" (
     echo ERROR: Kural file not found:
-    echo        %CD%\%KuralFile%
+    echo        %KuralFile%
     echo.
     echo Calculated Kural number: %Kod%
     goto :Cleanup
@@ -188,7 +182,7 @@ echo Windows architecture: %PROCESSOR_ARCHITECTURE%
 if defined PROCESSOR_ARCHITEW6432 echo Native architecture: %PROCESSOR_ARCHITEW6432%
 echo BGInfo executable: %BgInfoExe%
 
-start "" /min "%BgInfoExe%" "%KuralFile%" /NOLICPROMPT /SILENT /timer:0
+start "" /min "%~dp0%BgInfoExe%" "%KuralFile%" /NOLICPROMPT /SILENT /timer:0
 
 rem Display the calculated Thiruvalluvar date.
 echo.
