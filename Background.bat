@@ -173,7 +173,6 @@ echo திருவள்ளுவர் ஆண்டு %TrYear% நாள் 
 rem ------------------------------------------------
 rem Clear the Windows logon legal-notice caption and text.
 rem This requires Administrator privileges.
-rem The original registry behavior is retained.
 rem ------------------------------------------------
 chcp 65001 >nul
 REG ADD "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" /v legalnoticecaption /d "" /f
