@@ -1,3 +1,3 @@
 # BGKural
 பின்னணிகுறள்
-Keep the 'BGKural.exe' file in the `Run >> "shell:startup"`
+Keep a shortcut to this 'BGKural.exe' file in the `Run >> "shell:startup"`
